@@ -32,7 +32,7 @@ const INITIAL_MESSAGE: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Welcome to Chronos Luxe! I'm your temporal travel assistant. How may I help you plan your journey through time today?",
+    "Bienvenue chez Chronos Luxe. Je suis votre concierge temporel. Dites-moi ce que vous aimez (art, aventure, histoire, nature) et je vous recommande l’époque idéale.",
   timestamp: new Date(),
 }
 
@@ -46,36 +46,70 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
   const toggleChat = useCallback(() => setIsOpen((prev) => !prev), [])
 
   const sendMessage = useCallback(async (content: string) => {
+    const trimmed = content.trim()
+    if (!trimmed) return
+
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
-      content,
+      content: trimmed,
       timestamp: new Date(),
     }
 
-    setMessages((prev) => [...prev, userMessage])
+    // On crée le nouvel historique tout de suite (pour l'envoyer à l'API)
+    const nextMessages = [...messages, userMessage]
+
+    setMessages(nextMessages)
     setIsLoading(true)
 
-    // Placeholder for AI integration
-    // In production, this would call your AI endpoint
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // ⚡ Appel à l'API Groq via notre endpoint Next.js
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // Format OpenAI-style attendu par la route API
+          messages: nextMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        const errMsg =
+          typeof data?.error === "string"
+            ? data.error
+            : "Erreur côté serveur. Vérifiez la clé GROQ_API_KEY."
+        throw new Error(errMsg)
+      }
 
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: getPlaceholderResponse(content),
+        content: data.answer || "Désolé, je n’ai pas compris. Pouvez-vous reformuler ?",
         timestamp: new Date(),
       }
 
       setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
       console.error("Chat error:", error)
+
+      const assistantErrorMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content:
+          "Je rencontre un souci pour répondre (connexion IA). Vérifiez votre clé API et relancez le serveur.",
+        timestamp: new Date(),
+      }
+
+      setMessages((prev) => [...prev, assistantErrorMessage])
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [messages])
 
   const clearMessages = useCallback(() => {
     setMessages([INITIAL_MESSAGE])
@@ -97,27 +131,4 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
       {children}
     </ChatbotContext.Provider>
   )
-}
-
-// Placeholder response generator - replace with actual AI integration
-function getPlaceholderResponse(userMessage: string): string {
-  const lowerMessage = userMessage.toLowerCase()
-
-  if (lowerMessage.includes("destination") || lowerMessage.includes("where")) {
-    return "We offer three exclusive destinations: Paris 1889 during the Belle Époque, the Cretaceous period to witness dinosaurs, and Renaissance Florence in 1504. Each journey is meticulously curated for an unforgettable experience. Would you like to learn more about any specific destination?"
-  }
-
-  if (lowerMessage.includes("price") || lowerMessage.includes("cost")) {
-    return "Our journeys start at $45,000 for Paris 1889, $125,000 for the Cretaceous period, and $68,000 for Florence 1504. Prices vary based on duration and group size. Would you like a detailed quote?"
-  }
-
-  if (lowerMessage.includes("safe") || lowerMessage.includes("danger")) {
-    return "Safety is our top priority. All journeys include personal temporal guides, emergency extraction protocols, and period-appropriate safety equipment. Our Cretaceous tours use state-of-the-art observation pods for complete protection."
-  }
-
-  if (lowerMessage.includes("book") || lowerMessage.includes("reserve")) {
-    return "To book a journey, please visit our destinations page and select your preferred time period. You can also contact our concierge team directly for personalized assistance with your booking."
-  }
-
-  return "Thank you for your interest in Chronos Luxe! I'd be happy to help you learn more about our time travel experiences. You can ask me about our destinations, pricing, safety measures, or booking process."
 }

@@ -30,15 +30,37 @@ export function DestinationCard({ destination, priority = false }: DestinationCa
     "sold-out": "bg-red-500",
   }
 
+  // ✅ Force local assets (Projet 1) for the 3 featured destinations
+  const getImageSrc = () => {
+    const slug = (destination.slug || "").toLowerCase()
+    const title = (destination.title || "").toLowerCase()
+
+    if (slug.includes("paris") || title.includes("paris")) {
+      return "/assets/destinations/paris.png"
+    }
+    if (slug.includes("cretaceous") || slug.includes("cretace") || title.includes("cretaceous") || title.includes("crétacé") || title.includes("cretace")) {
+      return "/assets/destinations/cretaceous.png"
+    }
+    if (slug.includes("florence") || title.includes("florence")) {
+      return "/assets/destinations/florence.png"
+    }
+
+    // fallback: if destination.image exists, use it, otherwise placeholder
+    return destination.image || "/placeholder.svg"
+  }
+
+  const imageSrc = getImageSrc()
+
   return (
     <div className="group card-cinematic rounded-3xl overflow-hidden bg-card/80">
       {/* Image */}
       <div className="relative h-72 overflow-hidden">
         <Image
-          src={destination.image || "/placeholder.svg"}
+          src={imageSrc}
           alt={destination.title}
           fill
           priority={priority}
+          loading={priority ? "eager" : "lazy"}
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover img-zoom"
           placeholder="blur"
